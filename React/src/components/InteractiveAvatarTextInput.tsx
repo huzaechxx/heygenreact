@@ -114,9 +114,9 @@ export default function InteractiveAvatarTextInput({
         backgroundColor: "#18181B",
         padding: 10,
         paddingBottom: 20,
-        borderLeft: "1px solid #ddd",
-        borderRight: "1px solid #ddd",
-        borderBottom: "1px solid #ddd",
+        borderLeft: "0px solid #ddd",
+        borderRight: "0px solid #ddd",
+        borderBottom: "0px solid #ddd",
         borderEndStartRadius: 8,
         borderEndEndRadius: 8,
       }}

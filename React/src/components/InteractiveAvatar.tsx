@@ -533,7 +533,7 @@ export default function InteractiveAvatar() {
       >
         <div
           style={{
-            border: "1px solid #ddd",
+            border: "0px solid #ddd",
             borderBottom: "none",
             borderRadius: "8px",
             borderBottomLeftRadius: 0,
@@ -643,8 +643,8 @@ export default function InteractiveAvatar() {
         <div
           style={{
             borderTop: "1px solid #ddd",
-            borderRight: "1px solid #ddd",
-            borderLeft: "1px solid #ddd",
+            borderRight: "0px solid #ddd",
+            borderLeft: "0px solid #ddd",
             paddingTop: "10px",
             backgroundColor: "#18181B",
           }}
