@@ -122,7 +122,12 @@ import ThemeSwitch from "./ThemeSwitch";
 export default function NavBar() {
   return (
     <div
-      style={{ display: "flex", justifyContent: "center", marginBottom: 100 }}
+      style={{
+        display: "flex",
+        justifyContent: "center",
+        marginBottom: 100,
+        backgroundColor: "blue",
+      }}
     >
       <nav
         style={{

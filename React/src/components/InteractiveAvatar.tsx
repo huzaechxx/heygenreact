@@ -339,7 +339,16 @@
 //     </div>
 //   );
 // }
+import type { StartAvatarResponse } from "@heygen/streaming-avatar";
 
+import StreamingAvatar, {
+  AvatarQuality,
+  StreamingEvents,
+  TaskMode,
+  TaskType,
+  VoiceEmotion,
+} from "@heygen/streaming-avatar";
+import { useMemoizedFn, usePrevious } from "ahooks";
 import { useEffect, useRef, useState } from "react";
 import { AVATARS, STT_LANGUAGE_LIST } from "../lib/constants";
 import InteractiveAvatarTextInput from "./InteractiveAvatarTextInput";
@@ -352,10 +361,13 @@ export default function InteractiveAvatar() {
   const [knowledgeId, setKnowledgeId] = useState<string>("");
   const [avatarId, setAvatarId] = useState<string>("");
   const [language, setLanguage] = useState<string>("en");
+
+  const [data, setData] = useState<StartAvatarResponse>();
   const [text, setText] = useState<string>("");
+  const mediaStream = useRef<HTMLVideoElement>(null);
+  const avatar = useRef<StreamingAvatar | null>(null);
   const [chatMode, setChatMode] = useState("text_mode");
   const [isUserTalking, setIsUserTalking] = useState(false);
-  const mediaStream = useRef<HTMLVideoElement>(null);
 
   async function fetchAccessToken() {
     try {
@@ -378,25 +390,112 @@ export default function InteractiveAvatar() {
     setIsLoadingSession(true);
     const newToken = await fetchAccessToken();
     console.log("Starting avatar session with token:", newToken);
+    avatar.current = new StreamingAvatar({
+      token: newToken,
+    });
+    avatar.current.on(StreamingEvents.AVATAR_START_TALKING, (e) => {
+      console.log("Avatar started talking", e);
+    });
+    avatar.current.on(StreamingEvents.AVATAR_STOP_TALKING, (e) => {
+      console.log("Avatar stopped talking", e);
+    });
+    avatar.current.on(StreamingEvents.STREAM_DISCONNECTED, () => {
+      console.log("Stream disconnected");
+      endSession();
+    });
+    avatar.current?.on(StreamingEvents.STREAM_READY, (event) => {
+      console.log(">>>>> Stream ready:", event.detail);
+      setStream(event.detail);
+    });
+    avatar.current?.on(StreamingEvents.USER_START, (event) => {
+      console.log(">>>>> User started talking:", event);
+      setIsUserTalking(true);
+    });
+    avatar.current?.on(StreamingEvents.USER_STOP, (event) => {
+      console.log(">>>>> User stopped talking:", event);
+      setIsUserTalking(false);
+    });
+    try {
+      const res = await avatar.current.createStartAvatar({
+        quality: AvatarQuality.Low,
+        avatarName: avatarId,
+        knowledgeId: knowledgeId, // Or use a custom `knowledgeBase`.
+        voice: {
+          rate: 1.5, // 0.5 ~ 1.5
+          emotion: VoiceEmotion.EXCITED,
+          // elevenlabsSettings: {
+          //   stability: 1,
+          //   similarity_boost: 1,
+          //   style: 1,
+          //   use_speaker_boost: false,
+          // },
+        },
+        language: language,
+        disableIdleTimeout: true,
+      });
 
-    // Simulate API call
-    setTimeout(() => {
-      setStream(new MediaStream()); // Fake stream for demo
+      setData(res);
+      // default to voice mode
+      await avatar.current?.startVoiceChat({
+        useSilencePrompt: false,
+      });
       setChatMode("voice_mode");
+    } catch (error) {
+      console.error("Error starting avatar session:", error);
+    } finally {
       setIsLoadingSession(false);
-    }, 2000);
+    }
   }
 
   async function handleSpeak() {
     setIsLoadingRepeat(true);
-    console.log("Speaking:", text);
-    setTimeout(() => {
-      setIsLoadingRepeat(false);
-    }, 1000);
+    if (!avatar.current) {
+      setDebug("Avatar API not initialized");
+
+      return;
+    }
+    // speak({ text: text, task_type: TaskType.REPEAT })
+    await avatar.current
+      .speak({ text: text, taskType: TaskType.REPEAT, taskMode: TaskMode.SYNC })
+      .catch((e) => {
+        setDebug(e.message);
+      });
+    setIsLoadingRepeat(false);
+  }
+  async function handleInterrupt() {
+    if (!avatar.current) {
+      setDebug("Avatar API not initialized");
+
+      return;
+    }
+    await avatar.current.interrupt().catch((e) => {
+      setDebug(e.message);
+    });
   }
 
+  const handleChangeChatMode = useMemoizedFn(async (v) => {
+    if (v === chatMode) {
+      return;
+    }
+    if (v === "text_mode") {
+      avatar.current?.closeVoiceChat();
+    } else {
+      await avatar.current?.startVoiceChat();
+    }
+    setChatMode(v);
+  });
+
+  const previousText = usePrevious(text);
+  useEffect(() => {
+    if (!previousText && text) {
+      avatar.current?.startListening();
+    } else if (previousText && !text) {
+      avatar?.current?.stopListening();
+    }
+  }, [text, previousText]);
+
   async function endSession() {
-    console.log("Ending session...");
+    await avatar.current?.stopAvatar();
     setStream(undefined);
   }
 
